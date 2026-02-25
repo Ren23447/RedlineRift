@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer</title>
+    <style>
+        body { margin: 0; background: #111; color: #eee; font-family: sans-serif; overflow: hidden; }
+        #info { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; }
+        select { padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; margin-top: 10px; width: 100%; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; display: none; }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="info">
+        <h3>Model Inspector (For tests only)</h3>
+        <p>Use mouse to rotate/zoom and move</p>
+        <select id="model-select">
+            <option value="mclaren">McLaren F1</option>
+            <option value="supra">Toyota Supra</option>
+        </select>
+    </div>
+    <div id="loading">Loading GLB Models...</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const ASSETS = {
+            mclaren: "https://raw.githubusercontent.com/Ren23447/RedlineRift/main/mclaren_f1_1993_by_alex.ka.glb",
+            supra: "https://raw.githubusercontent.com/Ren23447/RedlineRift/main/toyotagr_supra_gt300__www.vecarz.com.glb",
+        };
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111111);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 5, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(10, 10, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        scene.add(grid);
+
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        const loader = new GLTFLoader();
+        loader.setDRACOLoader(dracoLoader);
+
+        let currentModel = null;
+        const loadingEl = document.getElementById('loading');
+
+        function loadModel(name) {
+            if (currentModel) scene.remove(currentModel);
+            loadingEl.style.display = 'block';
+
+            loader.load(ASSETS[name], (gltf) => {
+                currentModel = gltf.scene;
+                
+                // Auto-center and scale
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 5 / maxDim;
+                
+                currentModel.scale.setScalar(scale);
+                currentModel.position.sub(center.multiplyScalar(scale));
+                currentModel.position.y -= (box.min.y * scale); // Ground it
+
+                scene.add(currentModel);
+                loadingEl.style.display = 'none';
+                console.log('Loaded:', name, gltf);
+            }, undefined, (error) => {
+                console.error('Error loading model:', error);
+                loadingEl.textContent = "Error loading GLB. Check console.";
+            });
+        }
+
+        document.getElementById('model-select').addEventListener('change', (e) => loadModel(e.target.value));
+        loadModel('mclaren');
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
