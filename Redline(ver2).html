@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redline Rift</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 100%);
+            pointer-events: auto; display: flex; flex-direction: column; justify-content: center; padding-left: 5%; z-index: 100;
+        }
+
+        #start-screen h1 {
+            font-size: 4rem; color: #ff3b3b; text-shadow: 0 0 10px #ff3b3b; margin-bottom: 1rem; font-style: italic; text-transform: uppercase; letter-spacing: 3px;
+        }
+
+        .menu-panel {
+            background: rgba(20, 20, 20, 0.8); padding: 30px; border-radius: 10px; border-left: 5px solid #ff3b3b; width: 350px; pointer-events: auto;
+        }
+
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; color: #fff; margin-bottom: 0.5rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px; font-size: 1.1rem; border-radius: 5px; border: 2px solid #555; background: #222; color: #fff; outline: none; box-sizing: border-box;
+        }
+        .form-group input[type="color"] { padding: 2px; height: 40px; cursor: pointer; }
+        .form-group input:focus, .form-group select:focus { border-color: #ff3b3b; }
+
+        #btn-start {
+            width: 100%; padding: 15px; font-size: 1.5rem; font-weight: bold; text-transform: uppercase; background: #ff3b3b; color: #fff; border: none; border-radius: 5px; cursor: pointer; transition: all 0.2s; box-shadow: 0 5px 15px rgba(255, 59, 59, 0.4); margin-top: 10px;
+        }
+        #btn-start:hover { background: #ff5555; transform: translateY(-2px); }
+
+        #loading-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 101; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff;
+        }
+        #loading-bar-container { width: 300px; height: 20px; background: #222; border-radius: 10px; overflow: hidden; border: 2px solid #444; margin-top: 20px;}
+        #loading-bar { width: 0%; height: 100%; background: #ff3b3b; transition: width 0.1s; }
+
+        #hud { display: none; padding: 20px; flex-direction: column; justify-content: space-between; height: calc(100% - 40px); }
+        
+        #speedometer {
+            align-self: flex-end; margin-top: auto; font-size: 3rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px #ff3b3b; font-style: italic; background: rgba(0, 0, 0, 0.5); padding: 10px 20px; border-radius: 10px; border-bottom: 4px solid #ff3b3b;
+        }
+        
+        #controls-overlay {
+            background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; color: #ddd; border-left: 3px solid #ff3b3b; font-size: 0.9rem; line-height: 1.5; margin-top: 20px; width: 350px; box-sizing: border-box;
+        }
+        #controls-overlay h3 { margin: 0 0 10px 0; color: #fff; font-size: 1.1rem; }
+
+        #engine-status {
+            position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 5px; color: #fff; font-weight: bold; border-left: 3px solid #ff3b3b;
+        }
+        .engine-off { color: #aaa !important; }
+        .engine-on { color: #4CAF50 !important; text-shadow: 0 0 5px #4CAF50; }
+
+        .carmenu-text { color: #ff3b3b; font-size: 0.8rem; margin-top: 5px; display: block;}
+    
+          #pause-screen {
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+              background: rgba(0,0,0,0.8); z-index: 200; display: none; 
+              flex-direction: column; align-items: center; justify-content: center; color: white;
+          }
+          #pause-screen h1 {
+              font-size: 4rem; color: #ff3b3b; text-shadow: 0 0 10px #ff3b3b; margin-bottom: 2rem; font-style: italic; text-transform: uppercase;
+          }
+          #btn-resume {
+              padding: 15px 40px; font-size: 1.5rem; font-weight: bold; text-transform: uppercase; background: #ff3b3b; color: #fff; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 5px 15px rgba(255, 59, 59, 0.4); transition: all 0.2s;
+          }
+          #btn-resume:hover { background: #ff5555; transform: translateY(-2px); }
+      </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="game-canvas"></div>
+
+    <div id="loading-screen">
+        <div style="font-size: 2rem; color: #ff3b3b; margin-bottom: 10px; font-weight: bold;">LOADING ASSETS</div>
+        <div id="loading-text">Please wait... <span id="loading-percent">0</span>%</div>
+        <div id="loading-bar-container"><div id="loading-bar"></div></div>
+    </div>
+
+    
+      <div id="pause-screen">
+          <h1>PAUSED</h1>
+          <button id="btn-resume">Resume</button>
+          <button id="btn-exit" style="margin-top: 15px; padding: 15px 40px; font-size: 1.5rem; font-weight: bold; text-transform: uppercase; background: #555; color: #fff; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4); transition: all 0.2s;">Exit to Main Menu</button>
+      </div>
+      <div id="ui-layer">
+        <div id="start-screen">
+            <h1>Redline Rift (By: Ren)</h1>
+            <div class="menu-panel">
+                <div class="form-group">
+                    <label for="input-username">Username</label>
+                    <input type="text" id="input-username" value="RacerX" maxlength="15" />
+                </div>
+                <div class="form-group">
+                    <label for="input-color">Name Tag Color</label>
+                    <input type="color" id="input-color" value="#00ffcc" />
+                </div>
+                <div class="form-group">
+                    <label for="select-car">Select Vehicle</label>
+                    <select id="select-car">
+                        <option value="falcom">Falcom</option>
+                        <option value="supra">Toyota GR Supra GT300</option>
+                    </select>
+                    <span class="carmenu-text">Pick Your Car</span>
+                </div>
+                <button id="btn-start">Start Engine</button>
+            </div>
+            
+            <div id="controls-overlay">
+                <h3>Controls</h3>
+                <b>I</b> - Start/Stop Engine<br>
+                <b>SHIFT</b> - Accelerate<br>
+                <b>S</b> - Reverse<br>
+                <b>A / D</b> - Steer Left / Right<br>
+                <b>SPACE</b> - Brake / Drift<br>
+                <b>F5</b> - Toggle Camera View
+            </div>
+        </div>
+
+        <div id="hud">
+            <div id="engine-status" class="engine-off">ENGINE: OFF</div>
+            <div id="speedometer">0 <span style="font-size: 1.5rem; color: #aaa;">KM/H</span></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from "three";
+        import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+        // Asset URLs
+        const ASSETS = {
+            falcom: "https://raw.githubusercontent.com/Ren23447/RedlineRift/main/huracan_falcontm.glb",
+            supra: "https://raw.githubusercontent.com/Ren23447/RedlineRift/main/toyotagr_supra_gt300__www.vecarz.com.glb"
+        };
+
+        // REPLACEMENT FOR CAR_CONFIG
+        const CAR_CONFIG = {
+            falcom: {
+                scale: 1.0000,
+                collisionBox: { width: 2.20, length: 4.80 },
+                rotationY: Math.PI
+            },
+            supra: {
+                scale: 1.0000,
+                collisionBox: { width: 1.80, length: 4.60 },
+                rotationY: 0.0000
+            }
+        };
+
+        // State
+        const state = {
+            gameState: "LOADING", // LOADING, MENU, PLAYING
+            engineStarted: false, isPaused: false,
+            username: "RacerX",
+            nameColor: "#00ffcc",
+            carChoice: "falcom",
+            cameraView: "third-person", // third-person, first-person
+            keys: {
+                shift: false, s: false, a: false, d: false, space: false, i: false
+            }
+        };
+
+        // UI
+        const ui = {
+            startScreen: document.getElementById("start-screen"),
+            loadingScreen: document.getElementById("loading-screen"),
+            loadingBar: document.getElementById("loading-bar"),
+            loadingPercent: document.getElementById("loading-percent"),
+            hud: document.getElementById("hud"),
+            btnStart: document.getElementById("btn-start"),
+            speedometer: document.getElementById("speedometer"),
+            engineStatus: document.getElementById("engine-status"),
+            selectCar: document.getElementById("select-car"),
+            inputUsername: document.getElementById("input-username"),
+            inputColor: document.getElementById("input-color"),
+            pauseScreen: document.getElementById("pause-screen"),
+            btnResume: document.getElementById("btn-resume"),
+            btnExit: document.getElementById("btn-exit")
+        };
+
+        // Setup Three.js
+        const scene = new THREE.Scene();
+        // scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 100, 800);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById("game-canvas").appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(100, 200, 50);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 200;
+        dirLight.shadow.camera.bottom = -200;
+        dirLight.shadow.camera.left = -200;
+        dirLight.shadow.camera.right = 200;
+        dirLight.shadow.camera.near = 0.1;
+        dirLight.shadow.camera.far = 1000;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // OrbitControls for Menu
+        const orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.05;
+        orbitControls.maxPolarAngle = Math.PI / 2.1; // Don't go below ground
+        orbitControls.minDistance = 5;
+        orbitControls.maxDistance = 15;
+
+        // Map (Flat Map with Borders)
+        const mapGroup = new THREE.Group();
+        
+        // Ground
+        const groundGeo = new THREE.PlaneGeometry(1000, 1000);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        
+        // Grid helper for better speed perception
+        const grid = new THREE.GridHelper(1000, 100, 0x555555, 0x222222);
+        grid.position.y = 0.01;
+        
+        mapGroup.add(ground);
+        mapGroup.add(grid);
+
+        // Borders
+        const wallGeo = new THREE.BoxGeometry(1000, 20, 10);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.5 });
+        
+        const wall1 = new THREE.Mesh(wallGeo, wallMat);
+        wall1.position.set(0, 10, -500);
+        wall1.receiveShadow = true; wall1.castShadow = true;
+        
+        const wall2 = new THREE.Mesh(wallGeo, wallMat);
+        wall2.position.set(0, 10, 500);
+        wall2.receiveShadow = true; wall2.castShadow = true;
+        
+        const wall3 = new THREE.Mesh(wallGeo, wallMat);
+        wall3.rotation.y = Math.PI / 2;
+        wall3.position.set(-500, 10, 0);
+        wall3.receiveShadow = true; wall3.castShadow = true;
+        
+        const wall4 = new THREE.Mesh(wallGeo, wallMat);
+        wall4.rotation.y = Math.PI / 2;
+        wall4.position.set(500, 10, 0);
+        wall4.receiveShadow = true; wall4.castShadow = true;
+
+        mapGroup.add(wall1, wall2, wall3, wall4);
+        scene.add(mapGroup);
+
+        // Cars Models Cache
+        const loadedCars = { falcom: null, supra: null };
+        let activeCarMesh = null;
+        const playerCarGroup = new THREE.Group();
+        scene.add(playerCarGroup);
+        
+        let nameSprite = null;
+
+        // Physics State
+        let carSpeed = 0;
+        let carAngle = 0; // facing direction
+        let steeringAngle = 0; // current wheel turn
+        let slipAngle = 0; // drifting slip
+        let velocityY = 0;
+        
+        const CAR_PARAMS = {
+            accel: 20, // m/s^2
+            brake: 40,
+            reverseAccel: 15,
+            friction: 3,
+            drag: 0.015,
+            maxSpeed: 80, // m/s
+            maxSteer: 0.5, // radians
+            steerSpeed: 3.0,
+            driftSlipDecay: 4.0
+        };
+
+        // Loading
+        ui.loadingScreen.style.display = "flex";
+        
+        const loadingManager = new THREE.LoadingManager();
+        const loader = new GLTFLoader(loadingManager);
+          const textureLoader = new THREE.TextureLoader(loadingManager);
+          const skyTexture = textureLoader.load('https://raw.githubusercontent.com/Ren23447/RedlineRift/refs/heads/main/skybox.png');
+          skyTexture.mapping = THREE.EquirectangularReflectionMapping;
+          skyTexture.colorSpace = "srgb";
+          scene.background = skyTexture;
+          scene.environment = skyTexture;
+
+        loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+            const percent = Math.floor((itemsLoaded / itemsTotal) * 100);
+            ui.loadingBar.style.width = percent + "%";
+            ui.loadingPercent.innerText = percent;
+        };
+
+        loadingManager.onLoad = () => {
+            ui.loadingScreen.style.display = "none";
+            setupMenu();
+        };
+
+        // Load both cars
+        loader.load(ASSETS.falcom, (gltf) => {
+            const car = gltf.scene;
+            const config = CAR_CONFIG.falcom;
+            car.scale.set(config.scale, config.scale, config.scale);
+            car.rotation.y = config.rotationY;
+            car.position.y = 0.5;
+            car.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }});
+            loadedCars.falcom = car;
+        });
+
+        loader.load(ASSETS.supra, (gltf) => {
+            const car = gltf.scene;
+            const config = CAR_CONFIG.supra;
+            car.scale.set(config.scale, config.scale, config.scale);
+            car.rotation.y = config.rotationY;
+            car.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }});
+            loadedCars.supra = car;
+        });
+
+        function switchCarModel(carId) {
+            if (activeCarMesh) {
+                playerCarGroup.remove(activeCarMesh);
+            }
+            activeCarMesh = loadedCars[carId];
+            playerCarGroup.add(activeCarMesh);
+        }
+
+        function createNameTag(text, color) {
+            if (nameSprite) {
+                playerCarGroup.remove(nameSprite);
+            }
+            
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.width = 512;
+            canvas.height = 128;
+            
+            // Background
+            context.fillStyle = "rgba(0, 0, 0, 0.5)";
+            context.roundRect = function(x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.beginPath();
+                this.moveTo(x+r, y);
+                this.arcTo(x+w, y,   x+w, y+h, r);
+                this.arcTo(x+w, y+h, x,   y+h, r);
+                this.arcTo(x,   y+h, x,   y,   r);
+                this.arcTo(x,   y,   x+w, y,   r);
+                this.closePath();
+                return this;
+            }
+            context.roundRect(64, 16, 384, 96, 20).fill();
+            
+            // Text
+            context.font = "bold 55px 'Segoe UI', Arial";
+            context.fillStyle = color;
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.shadowColor = "#000";
+            context.shadowBlur = 10;
+            context.fillText(text, 256, 64);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: true });
+            nameSprite = new THREE.Sprite(spriteMat);
+            nameSprite.position.set(0, 3.0, 0); // Above the car
+            nameSprite.scale.set(6, 1.5, 1);
+            
+            playerCarGroup.add(nameSprite);
+        }
+
+        function setupMenu() {
+            state.gameState = "MENU";
+            switchCarModel(ui.selectCar.value);
+            
+            // Setup camera for menu
+            camera.position.set(5, 3, 5);
+            camera.lookAt(0, 1, 0);
+            orbitControls.target.set(0, 1, 0);
+            orbitControls.enabled = true;
+        }
+
+        function toggleCamera() {
+            state.cameraView = state.cameraView === "third-person" ? "first-person" : "third-person";
+        }
+
+        // UI Event Listeners
+        ui.selectCar.addEventListener("change", (e) => {
+            switchCarModel(e.target.value);
+        });
+
+        ui.btnResume.addEventListener("click", () => {
+              state.isPaused = false;
+              ui.pauseScreen.style.display = "none";
+          });
+
+          ui.btnExit.addEventListener("click", () => {
+              state.isPaused = false;
+              ui.pauseScreen.style.display = "none";
+              state.gameState = "MENU";
+              ui.hud.style.display = "none";
+              ui.startScreen.style.display = "flex";
+              orbitControls.enabled = true;
+          });
+
+          ui.btnStart.addEventListener("click", () => {
+            state.username = ui.inputUsername.value || "RacerX";
+            state.nameColor = ui.inputColor.value || "#00ffcc";
+            state.carChoice = ui.selectCar.value;
+            
+            createNameTag(state.username, state.nameColor);
+            
+            ui.startScreen.style.display = "none";
+            ui.hud.style.display = "flex";
+            
+            orbitControls.enabled = false;
+            state.gameState = "PLAYING";
+            state.engineStarted = false;
+            updateEngineUI();
+            
+            // Reset Physics
+            carSpeed = 0;
+            carAngle = 0;
+            slipAngle = 0;
+            steeringAngle = 0;
+            velocityY = 0;
+            playerCarGroup.position.set(0, 0.1, 0);
+            playerCarGroup.rotation.y = 0;
+        });
+
+        function updateEngineUI() {
+            if (state.engineStarted) {
+                ui.engineStatus.innerText = "ENGINE: ON";
+                ui.engineStatus.className = "engine-on";
+            } else {
+                ui.engineStatus.innerText = "ENGINE: OFF";
+                ui.engineStatus.className = "engine-off";
+            }
+        }
+
+        // Key Listeners
+        let lastF5Press = 0;
+        window.addEventListener("keydown", (e) => {
+            if (state.gameState !== "PLAYING") return;
+            
+            const code = e.code;
+            if (code === "ShiftLeft" || code === "ShiftRight") state.keys.shift = true;
+            if (code === "KeyS") state.keys.s = true;
+            if (code === "KeyA") state.keys.a = true;
+            if (code === "KeyD") state.keys.d = true;
+            if (code === "Space") state.keys.space = true;
+              
+              if (code === "KeyR") {
+                  if (state.gameState === "PLAYING" && !state.isPaused) {
+                      carSpeed = 0;
+                      carAngle = 0;
+                      slipAngle = 0;
+                      steeringAngle = 0;
+                      velocityY = 0;
+                      playerCarGroup.position.set(0, 0.1, 0);
+                      playerCarGroup.rotation.set(0, 0, 0);
+                  }
+              }
+
+              if (code === "Escape" || code === "KeyP") {
+                  if (state.gameState === "PLAYING") {
+                      state.isPaused = !state.isPaused;
+                      ui.pauseScreen.style.display = state.isPaused ? "flex" : "none";
+                  }
+              }
+            
+            if (code === "KeyI") {
+                if (!state.keys.i) { // prevent holding
+                    state.engineStarted = !state.engineStarted;
+                    updateEngineUI();
+                }
+                state.keys.i = true;
+            }
+
+            if (code === "F5" || (e.key.toLowerCase() === "f" && e.shiftKey) || code === "Digit5") {
+                if(code === "F5") e.preventDefault(); // prevent browser refresh
+                const now = Date.now();
+                if (now - lastF5Press > 300) { // debounce
+                    toggleCamera();
+                    lastF5Press = now;
+                }
+            }
+        });
+
+        window.addEventListener("keyup", (e) => {
+            const code = e.code;
+            if (code === "ShiftLeft" || code === "ShiftRight") state.keys.shift = false;
+            if (code === "KeyS") state.keys.s = false;
+            if (code === "KeyA") state.keys.a = false;
+            if (code === "KeyD") state.keys.d = false;
+            if (code === "Space") state.keys.space = false;
+            if (code === "KeyI") state.keys.i = false;
+        });
+
+        window.addEventListener("resize", () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Physics Update
+        const clock = new THREE.Clock();
+
+        function updatePhysics(delta) {
+            // Steering logic (active even if engine off, if moving)
+            let steerTarget = 0;
+            if (state.keys.a) steerTarget = CAR_PARAMS.maxSteer;
+            if (state.keys.d) steerTarget = -CAR_PARAMS.maxSteer;
+            
+            // Smooth steering
+            steeringAngle += (steerTarget - steeringAngle) * CAR_PARAMS.steerSpeed * delta;
+
+            if (state.engineStarted) {
+                // Acceleration
+                if (state.keys.shift) {
+                    carSpeed += CAR_PARAMS.accel * delta;
+                }
+                // Reverse
+                if (state.keys.s) {
+                    carSpeed -= CAR_PARAMS.reverseAccel * delta;
+                }
+            }
+
+            // Braking
+            let isDrifting = false;
+            if (state.keys.space) {
+                if (Math.abs(carSpeed) > 15 && Math.abs(steeringAngle) > 0.1) {
+                    // Drift mechanic
+                    isDrifting = true;
+                    // Induce slip
+                    const slipDir = Math.sign(steeringAngle);
+                    slipAngle += slipDir * 2.5 * delta;
+                    // Drifting still applies some brake
+                    if (carSpeed > 0) carSpeed -= (CAR_PARAMS.brake * 0.4) * delta;
+                    else if (carSpeed < 0) carSpeed += (CAR_PARAMS.brake * 0.4) * delta;
+                } else {
+                    // Regular brake
+                    if (carSpeed > 0) {
+                        carSpeed -= CAR_PARAMS.brake * delta;
+                        if (carSpeed < 0) carSpeed = 0;
+                    } else if (carSpeed < 0) {
+                        carSpeed += CAR_PARAMS.brake * delta;
+                        if (carSpeed > 0) carSpeed = 0;
+                    }
+                }
+            }
+
+            // Friction & Drag
+            if (!state.keys.shift && !state.keys.s && !state.keys.space) {
+                // Natural deceleration
+                const dragForce = carSpeed * carSpeed * CAR_PARAMS.drag * Math.sign(carSpeed);
+                const frictionForce = CAR_PARAMS.friction * Math.sign(carSpeed);
+                
+                if (Math.abs(carSpeed) > 0.1) {
+                    carSpeed -= (dragForce + frictionForce) * delta;
+                } else {
+                    carSpeed = 0;
+                }
+            }
+
+            // Speed Cap
+            carSpeed = Math.max(Math.min(carSpeed, CAR_PARAMS.maxSpeed), -CAR_PARAMS.maxSpeed / 3);
+
+            // Recover from drift slip
+            if (!isDrifting) {
+                slipAngle += (0 - slipAngle) * CAR_PARAMS.driftSlipDecay * delta;
+            }
+            
+            // Cap slip angle
+            slipAngle = Math.max(Math.min(slipAngle, Math.PI/2.2), -Math.PI/2.2);
+
+            // Apply steering to heading (only when moving)
+            if (Math.abs(carSpeed) > 0.1) {
+                const turnRadius = 5.0; // rough turning radius
+                const angularVelocity = (carSpeed / turnRadius) * steeringAngle;
+                carAngle += angularVelocity * delta;
+            }
+
+            // Movement vector
+            const movementAngle = carAngle + slipAngle;
+            const vx = Math.sin(movementAngle) * carSpeed;
+            const vz = Math.cos(movementAngle) * carSpeed;
+
+            // Update position
+            playerCarGroup.position.x += vx * delta;
+            playerCarGroup.position.z += vz * delta;
+            
+            // Advanced Collision with map borders based on CAR_CONFIG
+            const config = CAR_CONFIG[state.carChoice];
+            const colWidth = config.collisionBox.width / 2;
+            const colLength = config.collisionBox.length / 2;
+            
+            // Approximate bounding radius for border collision based on max dimension
+            const carRadius = Math.max(colWidth, colLength); 
+            const mapLimit = 495 - carRadius;
+            
+            if (playerCarGroup.position.x > mapLimit) { playerCarGroup.position.x = mapLimit; carSpeed *= 0.5; }
+            if (playerCarGroup.position.x < -mapLimit) { playerCarGroup.position.x = -mapLimit; carSpeed *= 0.5; }
+            if (playerCarGroup.position.z > mapLimit) { playerCarGroup.position.z = mapLimit; carSpeed *= 0.5; }
+            if (playerCarGroup.position.z < -mapLimit) { playerCarGroup.position.z = -mapLimit; carSpeed *= 0.5; }
+
+            // Update rotation
+            playerCarGroup.rotation.y = carAngle;
+
+            // Update name tag rotation so it always faces camera
+            if (nameSprite) {
+                // Sprites automatically face camera, but we ensure it doesn't tilt weirdly
+            }
+
+            // UI
+            const kmh = Math.abs(Math.floor(carSpeed * 3.6)); // m/s to km/h
+            ui.speedometer.innerHTML = `${kmh} <span style="font-size: 1.5rem; color: #aaa;">KM/H</span>`;
+        }
+
+        // ==========================================
+// REPLACEMENT FOR updateCamera() FUNCTION
+// (Make sure to replace the existing function)
+// ==========================================
+const CAMERA_PRESETS = {
+    falcom: {
+    "scale": 1,
+    "rotationY": 0,
+    "collisionBox": {
+        "width": 2.2,
+        "length": 4.8
+    },
+    "camThird": {
+        "offset": {
+            "x": 0,
+            "y": 3,
+            "z": -8
+        },
+        "lookAtY": 1.5
+    },
+    "camFirst": {
+        "offset": {
+            "x": 0.5,
+            "y": 1.2,
+            "z": 0.5
+        },
+        "lookAt": {
+            "y": 1.2,
+            "z": 10
+        }
+    }
+},
+    supra: {
+    "scale": 1,
+    "rotationY": 0,
+    "collisionBox": {
+        "width": 1.8,
+        "length": 4.6
+    },
+    "camThird": {
+        "offset": {
+            "x": 0,
+            "y": 1.9,
+            "z": -3.5
+        },
+        "lookAtY": 1.3
+    },
+    "camFirst": {
+        "offset": {
+            "x": -0.4,
+            "y": 0.9,
+            "z": -0.2
+        },
+        "lookAt": {
+            "y": 1.2,
+            "z": 10
+        }
+    }
+}
+};
+
+function updateCamera() {
+    if (state.gameState === "PLAYING") {
+        const presets = CAMERA_PRESETS[state.carChoice];
+        if (state.cameraView === "third-person") {
+            const p = presets.camThird;
+            const idealOffset = new THREE.Vector3(p.offset.x, p.offset.y, p.offset.z);
+            idealOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), carAngle);
+            const idealPos = playerCarGroup.position.clone().add(idealOffset);
+            
+            const idealLookAt = playerCarGroup.position.clone().add(new THREE.Vector3(0, p.lookAtY, 0));
+            
+            camera.position.lerp(idealPos, 0.15);
+            camera.lookAt(idealLookAt);
+        } else if (state.cameraView === "first-person") {
+            const p = presets.camFirst;
+            const hoodOffset = new THREE.Vector3(p.offset.x, p.offset.y, p.offset.z);
+            hoodOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), carAngle);
+            
+            camera.position.copy(playerCarGroup.position).add(hoodOffset);
+            
+            const lookAtOffset = new THREE.Vector3(0, p.lookAt.y, p.lookAt.z);
+            lookAtOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), carAngle);
+            camera.lookAt(playerCarGroup.position.clone().add(lookAtOffset));
+        }
+    } else if (state.gameState === "MENU") {
+        orbitControls.update();
+    }
+}
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = Math.min(clock.getDelta(), 0.1); // cap delta to prevent huge jumps
+            
+            if (state.gameState === "PLAYING") {
+                updatePhysics(delta);
+            }
+            
+            updateCamera();
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
