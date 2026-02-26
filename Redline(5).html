@@ -48,7 +48,7 @@
         #hud { display: none; padding: 20px; flex-direction: column; justify-content: space-between; height: calc(100% - 40px); }
         
         #speedometer {
-            align-self: flex-end; margin-top: auto; font-size: 3rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px #ff3b3b; font-style: italic; background: rgba(0, 0, 0, 0.5); padding: 10px 20px; border-radius: 10px; border-bottom: 4px solid #ff3b3b;
+            align-self: flex-end; margin-top: auto; font-size: 3rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px #59009c; font-style: italic; background: rgba(0, 0, 0, 0.5); padding: 10px 20px; border-radius: 10px; border-bottom: 4px solid #59009c;
         }
         
         #controls-overlay {
@@ -392,9 +392,9 @@
             friction: 11,
             drag: 0.015,
             maxSpeed: 100, // m/s
-            maxSteer: 0.5, // radians
+            maxSteer: 0.9, // radians
             steerSpeed: 0.5,
-            driftSlipDecay: 9.0
+            driftSlipDecay: 20.0
         };
 
         // Loading
