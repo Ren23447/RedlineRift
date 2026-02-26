@@ -342,7 +342,7 @@
               if (!isDrifting || Math.random() > 0.6) return; // limit emission rate
               for (let side of [-1, 1]) {
                   const particle = new THREE.Mesh(smokeGeometry, smokeMaterial.clone());
-                  const localPos = new THREE.Vector3(side * 0.9, 0.1, -2.2);
+                  const localPos = new THREE.Vector3(side * -0.9, -0.1, -2.2);
                   localPos.applyMatrix4(playerCarGroup.matrixWorld);
                   particle.position.copy(localPos);
                   
@@ -676,7 +676,7 @@
                     isDrifting = true;
                     // Induce slip
                     const slipDir = Math.sign(steeringAngle);
-                    slipAngle += slipDir * 2.5 * delta;
+                    slipAngle += slipDir * -0.5 * delta;
                     // Drifting still applies some brake
                     if (carSpeed > 0) carSpeed -= (CAR_PARAMS.brake * 0.4) * delta;
                     else if (carSpeed < 0) carSpeed += (CAR_PARAMS.brake * 0.4) * delta;
