@@ -387,14 +387,14 @@
         
         const CAR_PARAMS = {
             accel: 20, // m/s^2
-            brake: 40,
+            brake: 50,
             reverseAccel: 15,
-            friction: 3,
+            friction: 11,
             drag: 0.015,
-            maxSpeed: 80, // m/s
+            maxSpeed: 100, // m/s
             maxSteer: 0.5, // radians
-            steerSpeed: 3.0,
-            driftSlipDecay: 4.0
+            steerSpeed: 0.5,
+            driftSlipDecay: 9.0
         };
 
         // Loading
@@ -676,7 +676,7 @@
                     isDrifting = true;
                     // Induce slip
                     const slipDir = Math.sign(steeringAngle);
-                    slipAngle += slipDir * -0.5 * delta;
+                    slipAngle += slipDir * -0.05 * delta;
                     // Drifting still applies some brake
                     if (carSpeed > 0) carSpeed -= (CAR_PARAMS.brake * 0.4) * delta;
                     else if (carSpeed < 0) carSpeed += (CAR_PARAMS.brake * 0.4) * delta;
